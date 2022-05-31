@@ -1,8 +1,18 @@
+import com.example.project.Gender;
+import com.example.project.Person;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Named;
+import org.junit.jupiter.params.aggregator.AggregateWith;
+import org.junit.jupiter.params.aggregator.ArgumentsAccessor;
+import org.junit.jupiter.params.converter.ConvertWith;
+import org.junit.jupiter.params.converter.JavaTimeConversionPattern;
 import org.junit.jupiter.params.provider.*;
 import org.junit.platform.commons.util.StringUtils;
 
 import org.junit.jupiter.params.ParameterizedTest;
 
+import java.io.File;
+import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalUnit;
 import java.util.Arrays;
@@ -218,5 +228,77 @@ public class ParameterizedTestDemo {
     @ValueSource(strings = "42 Cats")
     void testWithImplicitFallbackArgumentConversion(Book book) {
         assertEquals("42 Cats", book.getTitle());
+    }
+
+    @ParameterizedTest
+    @EnumSource(ChronoUnit.class)
+    void testWithExplicitArgumentConversion(
+            @ConvertWith(ToStringArgumentConverter.class) String argument) {
+
+        assertNotNull(ChronoUnit.valueOf(argument));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = { "01.01.2017", "31.12.2017" })
+    void testWithExplicitJavaTimeConverter(
+            @JavaTimeConversionPattern("dd.MM.yyyy") LocalDate argument) {
+
+        assertEquals(2017, argument.getYear());
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "Jane, Doe, F, 1990-05-20",
+            "John, Doe, M, 1990-10-22"
+    })
+    void testWithArgumentsAccessor(ArgumentsAccessor arguments) {
+        Person person = new Person(arguments.getString(0),
+                arguments.getString(1),
+                arguments.get(2, Gender.class),
+                arguments.get(3, LocalDate.class));
+
+        if (person.getFirstName().equals("Jane")) {
+            assertEquals(Gender.F, person.getGender());
+        }
+        else {
+            assertEquals(Gender.M, person.getGender());
+        }
+        assertEquals("Doe", person.getLastName());
+        assertEquals(1990, person.getDateOfBirth().getYear());
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "Jane, Doe, F, 1990-05-20",
+            "John, Doe, M, 1990-10-22"
+    })
+    void testWithArgumentsAggregator(@AggregateWith(PersonAggregator.class) Person person) {
+        // perform assertions against person
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "Jane, Doe, F, 1990-05-20",
+            "John, Doe, M, 1990-10-22"
+    })
+    void testWithCustomAggregatorAnnotation(@CsvToPerson Person person) {
+        // perform assertions against person
+    }
+
+    @DisplayName("Display name of container")
+    @ParameterizedTest(name = "{index} ==> the rank of ''{0}'' is {1}")
+    @CsvSource({ "apple, 1", "banana, 2", "'lemon, lime', 3" })
+    void testWithCustomDisplayNames(String fruit, int rank) {
+    }
+
+    @DisplayName("A parameterized test with named arguments")
+    @ParameterizedTest(name = "{index}: {0}")
+    @MethodSource("namedArguments")
+    void testWithNamedArguments(File file) {
+    }
+
+    static Stream<Arguments> namedArguments() {
+        return Stream.of(arguments(Named.of("An important file", new File("path1"))),
+                arguments(Named.of("Another file", new File("path2"))));
     }
 }
